@@ -183,6 +183,14 @@ export abstract class Storage {
       return false
     }
   }
+
+  async decryptUrl(hashedUrl: string, encryptedMethod: EncryptMethod): Promise<string> {
+    const decodedUrlBuffer = Buffer.from(hashedUrl, 'base64')
+    const decryptedBuffer = await decrypt(decodedUrlBuffer, encryptedMethod)
+    const decoder = new TextDecoder()
+    const decryptedUrl = decoder.decode(decryptedBuffer)
+    return decryptedUrl
+  }
 }
 
 export class UrlStorage extends Storage {
@@ -226,10 +234,7 @@ export class UrlStorage extends Storage {
     if (this.validate()[0] === true) {
       const file = this.getFile()
       if (file?.encryptedBy && file?.encryptedMethod) {
-        const decodedUrlBuffer = Buffer.from(file.url, 'base64')
-        const decryptedBuffer = await decrypt(decodedUrlBuffer, file.encryptedMethod)
-        const decoder = new TextDecoder()
-        const decryptedUrl = decoder.decode(decryptedBuffer)
+        const decryptedUrl = await this.decryptUrl(file.url, file.encryptedMethod)
         return decryptedUrl
       } else {
         return file.url
@@ -392,10 +397,7 @@ export class IpfsStorage extends Storage {
   async getDownloadUrl(): Promise<string> {
     const file = this.getFile()
     if (file?.encryptedBy && file?.encryptedMethod) {
-      const decodedUrlBuffer = Buffer.from(file.hash, 'base64')
-      const decryptedBuffer = await decrypt(decodedUrlBuffer, file.encryptedMethod)
-      const decoder = new TextDecoder()
-      const decryptedUrl = decoder.decode(decryptedBuffer)
+      const decryptedUrl = await this.decryptUrl(file.hash, file.encryptedMethod)
       return urlJoin(process.env.IPFS_GATEWAY, urlJoin('/ipfs', decryptedUrl))
     }
     return urlJoin(process.env.IPFS_GATEWAY, urlJoin('/ipfs', file.hash))
