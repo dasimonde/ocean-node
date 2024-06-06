@@ -146,3 +146,11 @@ export interface TypesenseSearchResponse {
     found?: number
   }[]
 }
+
+export interface TypesenseMultiseachCollectionSearchParams extends TypesenseSearchParams {
+  collection: string
+}
+
+export interface TypesenseMultiSearchParams {
+  searches: TypesenseMultiseachCollectionSearchParams []
+}

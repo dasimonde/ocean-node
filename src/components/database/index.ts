@@ -11,6 +11,7 @@ import {
 import { DATABASE_LOGGER } from '../../utils/logging/common.js'
 import { validateObject } from '../core/utils/validateDdoHandler.js'
 import { ENVIRONMENT_VARIABLES } from '../../utils/constants.js'
+import {Logger} from "winston";
 
 export class OrderDatabase {
   private provider: Typesense
@@ -63,7 +64,6 @@ export class OrderDatabase {
         per_page: maxPerPage,
         page
       }
-
       const result = await this.provider
         .collections(this.schema.name)
         .documents()
@@ -407,22 +407,27 @@ export class DdoDatabase {
 
       const maxPerPage = maxResultsPerPage ? Math.min(maxResultsPerPage, 250) : 250 // Cap maxResultsPerPage at 250
       const page = pageNumber || 1 // Default to the first page if pageNumber is not provided
-      const results = []
+      // const results = []
 
-      for (const schema of this.schemas) {
-        // Extend the query with pagination parameters
-        const searchParams: TypesenseSearchParams = {
-          ...queryObj,
-          per_page: maxPerPage,
-          page
-        }
-        const result = await this.provider
-          .collections(schema.name)
-          .documents()
-          .search(searchParams)
-        results.push(result)
-      }
-
+      // for (const schema of this.schemas) {
+      //   // Extend the query with pagination parameters
+      //   const searchParams: TypesenseSearchParams = {
+      //     ...queryObj,
+      //     per_page: maxPerPage,
+      //     page
+      //   }
+      //   const result = await this.provider
+      //     .collections(schema.name)
+      //     .documents()
+      //     .search(searchParams)
+      //   results.push(result)
+      // }
+       const results = this.provider.multiSearch.search({
+            ...queryObj,
+            per_page: maxPerPage,
+            page
+          })
+      console.log(results)
       return results
     } catch (error) {
       const errorMsg =

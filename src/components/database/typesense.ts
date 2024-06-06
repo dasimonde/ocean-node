@@ -169,11 +169,14 @@ export class Typesense {
   api: TypesenseApi
   collectionsRecords: Record<string, TypesenseCollection> = {}
   private readonly _collections: TypesenseCollections
+  readonly multiSearch: TypesenseMultisearch;
 
   constructor(options: TypesenseConfigOptions) {
     this.config = new TypesenseConfig(options)
     this.api = new TypesenseApi(this.config)
     this._collections = new TypesenseCollections(this.api)
+    this.multiSearch = new TypesenseMultisearch(this.api)
+
   }
 
   collections(): TypesenseCollections
@@ -190,5 +193,25 @@ export class Typesense {
       }
       return this.collectionsRecords[collectionName]
     }
+  }
+}
+
+export class TypesenseMultisearch {
+  private readonly apiPath = 'multi_search'
+
+  constructor(private readonly api: TypesenseApi) {}
+
+  search(searchParameters: TypesenseSearchParams) {
+    const additionalQueryParams: { [key: string]: any } = {}
+    for (const key in searchParameters) {
+      if (Array.isArray(searchParameters[key])) {
+        additionalQueryParams[key] = searchParameters[key].join(',')
+      }
+    }
+    const queryParams = Object.assign({}, searchParameters, additionalQueryParams)
+    return this.api.post<TypesenseSearchResponse>(
+        this.apiPath,
+        queryParams
+    ) as Promise<TypesenseSearchResponse>
   }
 }
