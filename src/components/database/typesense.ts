@@ -5,8 +5,10 @@ import {
   TypesenseCollectionUpdateSchema,
   TypesenseConfigOptions,
   TypesenseDocumentSchema,
-  TypesenseSearchResponse
-} from '../../@types/index.js'
+  TypesenseSearchResponse,
+  TypesenseMultiSearchParams,
+  TypesenseMultiSearchResponse
+} from '../../@types'
 import { TypesenseApi } from './typesenseApi.js'
 import { TypesenseConfig } from './typesenseConfig.js'
 
@@ -169,14 +171,13 @@ export class Typesense {
   api: TypesenseApi
   collectionsRecords: Record<string, TypesenseCollection> = {}
   private readonly _collections: TypesenseCollections
-  readonly multiSearch: TypesenseMultisearch;
+  readonly multiSearch: TypesenseMultisearch
 
   constructor(options: TypesenseConfigOptions) {
     this.config = new TypesenseConfig(options)
     this.api = new TypesenseApi(this.config)
     this._collections = new TypesenseCollections(this.api)
     this.multiSearch = new TypesenseMultisearch(this.api)
-
   }
 
   collections(): TypesenseCollections
@@ -197,21 +198,35 @@ export class Typesense {
 }
 
 export class TypesenseMultisearch {
-  private readonly apiPath = 'multi_search'
+  private readonly apiPath = '/multi_search'
+  private readonly api: TypesenseApi
 
-  constructor(private readonly api: TypesenseApi) {}
+  constructor(api: TypesenseApi) {
+    this.api = api
+  }
 
-  search(searchParameters: TypesenseSearchParams) {
-    const additionalQueryParams: { [key: string]: any } = {}
-    for (const key in searchParameters) {
-      if (Array.isArray(searchParameters[key])) {
-        additionalQueryParams[key] = searchParameters[key].join(',')
+  async search(
+    searchParameters: TypesenseSearchParams,
+    collections: string[]
+  ): Promise<TypesenseSearchResponse[]> {
+    // const additionalQueryParams: { [key: string]: any } = {}
+    // for (const key in searchParameters) {
+    //   if (Array.isArray(searchParameters[key])) {
+    //     additionalQueryParams[key] = searchParameters[key].join(',')
+    //   }
+    // }
+    // const queryParams = Object.assign({}, searchParameters, additionalQueryParams)
+    // this.adaptQuery(searchParameters, schemas)
+    const queryParams = collections.map((collection): TypesenseMultiSearchParams => {
+      return {
+        ...searchParameters,
+        collection
       }
-    }
-    const queryParams = Object.assign({}, searchParameters, additionalQueryParams)
-    return this.api.post<TypesenseSearchResponse>(
-        this.apiPath,
-        queryParams
-    ) as Promise<TypesenseSearchResponse>
+    })
+
+    const response = await this.api.post<TypesenseMultiSearchResponse>(this.apiPath, {
+      searches: queryParams
+    })
+    return response.results.filter((r) => r.hits)
   }
 }

@@ -1,7 +1,7 @@
 import { OceanNodeDBConfig } from '../../@types/OceanNode.js'
 import { convertTypesenseConfig, Typesense, TypesenseError } from './typesense.js'
 import { Schema, schemas } from './schemas.js'
-import { TypesenseSearchParams } from '../../@types/index.js'
+import { TypesenseMultiSearchParams, TypesenseSearchParams } from '../../@types/index.js'
 import {
   LOG_LEVELS_STR,
   configureCustomDBTransport,
@@ -11,7 +11,7 @@ import {
 import { DATABASE_LOGGER } from '../../utils/logging/common.js'
 import { validateObject } from '../core/utils/validateDdoHandler.js'
 import { ENVIRONMENT_VARIABLES } from '../../utils/constants.js'
-import {Logger} from "winston";
+import { Logger } from 'winston'
 
 export class OrderDatabase {
   private provider: Typesense
@@ -422,13 +422,15 @@ export class DdoDatabase {
       //     .search(searchParams)
       //   results.push(result)
       // }
-       const results = this.provider.multiSearch.search({
-            ...queryObj,
-            per_page: maxPerPage,
-            page
-          })
-      console.log(results)
-      return results
+
+      const collections = await this.provider.collections().retrieve()
+      // support v4 collections
+      // todo maybe load these when starting the node
+      const v4Collections: string[] = collections
+        .filter((c) => c.name.includes('op_ddo_v4.'))
+        .map((c) => c.name)
+      const result = await this.provider.multiSearch.search(queryObj, v4Collections)
+      return result
     } catch (error) {
       const errorMsg =
         `Error when searching by query ${JSON.stringify(query)}: ` + error.message

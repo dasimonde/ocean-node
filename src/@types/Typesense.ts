@@ -83,7 +83,7 @@ export interface TypesenseSearchParams {
   [key: string]: any
   // From https://typesense.org/docs/latest/api/documents.html#arguments
   q: string
-  query_by: string | string[]
+  query_by: string
   query_by_weights?: string | number[]
   prefix?: string | boolean | boolean[] // default: true
   filter_by?: string
@@ -147,10 +147,14 @@ export interface TypesenseSearchResponse {
   }[]
 }
 
-export interface TypesenseMultiseachCollectionSearchParams extends TypesenseSearchParams {
-  collection: string
+export interface TypesenseMultiSearchResponse {
+  results: TypesenseSearchResponse[]
 }
 
 export interface TypesenseMultiSearchParams {
-  searches: TypesenseMultiseachCollectionSearchParams []
+  collection: string
+}
+
+export interface TypesenseMultiSearchesParam {
+  searches: TypesenseMultiSearchParams[]
 }

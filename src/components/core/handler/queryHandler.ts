@@ -19,10 +19,7 @@ export class QueryHandler extends Handler {
       return validationResponse
     }
     try {
-      let result = await this.getOceanNode().getDatabase().ddo.search(task.query)
-      if (!result) {
-        result = []
-      }
+      const result = await this.getOceanNode().getDatabase().ddo.search(task.query)
       return {
         stream: Readable.from(JSON.stringify(result)),
         status: { httpStatus: 200 }
