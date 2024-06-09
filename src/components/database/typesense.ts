@@ -209,14 +209,6 @@ export class TypesenseMultisearch {
     searchParameters: TypesenseSearchParams,
     collections: string[]
   ): Promise<TypesenseSearchResponse[]> {
-    // const additionalQueryParams: { [key: string]: any } = {}
-    // for (const key in searchParameters) {
-    //   if (Array.isArray(searchParameters[key])) {
-    //     additionalQueryParams[key] = searchParameters[key].join(',')
-    //   }
-    // }
-    // const queryParams = Object.assign({}, searchParameters, additionalQueryParams)
-    // this.adaptQuery(searchParameters, schemas)
     const queryParams = collections.map((collection): TypesenseMultiSearchParams => {
       return {
         ...searchParameters,

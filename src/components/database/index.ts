@@ -1,17 +1,16 @@
 import { OceanNodeDBConfig } from '../../@types/OceanNode.js'
 import { convertTypesenseConfig, Typesense, TypesenseError } from './typesense.js'
 import { Schema, schemas } from './schemas.js'
-import { TypesenseMultiSearchParams, TypesenseSearchParams } from '../../@types/index.js'
+import { TypesenseSearchParams } from '../../@types/index.js'
 import {
-  LOG_LEVELS_STR,
   configureCustomDBTransport,
   GENERIC_EMOJIS,
-  isDevelopmentEnvironment
+  isDevelopmentEnvironment,
+  LOG_LEVELS_STR
 } from '../../utils/logging/Logger.js'
 import { DATABASE_LOGGER } from '../../utils/logging/common.js'
 import { validateObject } from '../core/utils/validateDdoHandler.js'
 import { ENVIRONMENT_VARIABLES } from '../../utils/constants.js'
-import { Logger } from 'winston'
 
 export class OrderDatabase {
   private provider: Typesense
@@ -395,7 +394,7 @@ export class DdoDatabase {
     query: Record<string, any>,
     maxResultsPerPage?: number,
     pageNumber?: number
-  ) {
+  ): Promise<any> {
     try {
       let queryObj: TypesenseSearchParams
       // if queryObj is a string
@@ -405,32 +404,11 @@ export class DdoDatabase {
         queryObj = query as TypesenseSearchParams
       }
 
-      const maxPerPage = maxResultsPerPage ? Math.min(maxResultsPerPage, 250) : 250 // Cap maxResultsPerPage at 250
-      const page = pageNumber || 1 // Default to the first page if pageNumber is not provided
-      // const results = []
-
-      // for (const schema of this.schemas) {
-      //   // Extend the query with pagination parameters
-      //   const searchParams: TypesenseSearchParams = {
-      //     ...queryObj,
-      //     per_page: maxPerPage,
-      //     page
-      //   }
-      //   const result = await this.provider
-      //     .collections(schema.name)
-      //     .documents()
-      //     .search(searchParams)
-      //   results.push(result)
-      // }
-
-      const collections = await this.provider.collections().retrieve()
       // support v4 collections
-      // todo maybe load these when starting the node
-      const v4Collections: string[] = collections
+      const v4Collections = this.schemas
         .filter((c) => c.name.includes('op_ddo_v4.'))
         .map((c) => c.name)
-      const result = await this.provider.multiSearch.search(queryObj, v4Collections)
-      return result
+      return await this.provider.multiSearch.search(queryObj, v4Collections)
     } catch (error) {
       const errorMsg =
         `Error when searching by query ${JSON.stringify(query)}: ` + error.message
