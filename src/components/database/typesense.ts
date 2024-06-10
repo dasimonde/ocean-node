@@ -161,6 +161,32 @@ export class TypesenseCollections {
   }
 }
 
+export class TypesenseMultisearch {
+  private readonly apiPath = '/multi_search'
+  private readonly api: TypesenseApi
+
+  constructor(api: TypesenseApi) {
+    this.api = api
+  }
+
+  async search(
+    searchParameters: TypesenseSearchParams,
+    collections: string[]
+  ): Promise<TypesenseSearchResponse[]> {
+    const queryParams = collections.map((collection): TypesenseMultiSearchParams => {
+      return {
+        ...searchParameters,
+        collection
+      }
+    })
+
+    const response = await this.api.post<TypesenseMultiSearchResponse>(this.apiPath, {
+      searches: queryParams
+    })
+    return response.results.filter((r) => r.hits)
+  }
+}
+
 /**
  * Typesense class is used to create a base instance to work with Typesense
  * It initiates classes that provides access to methods of collections
@@ -194,31 +220,5 @@ export class Typesense {
       }
       return this.collectionsRecords[collectionName]
     }
-  }
-}
-
-export class TypesenseMultisearch {
-  private readonly apiPath = '/multi_search'
-  private readonly api: TypesenseApi
-
-  constructor(api: TypesenseApi) {
-    this.api = api
-  }
-
-  async search(
-    searchParameters: TypesenseSearchParams,
-    collections: string[]
-  ): Promise<TypesenseSearchResponse[]> {
-    const queryParams = collections.map((collection): TypesenseMultiSearchParams => {
-      return {
-        ...searchParameters,
-        collection
-      }
-    })
-
-    const response = await this.api.post<TypesenseMultiSearchResponse>(this.apiPath, {
-      searches: queryParams
-    })
-    return response.results.filter((r) => r.hits)
   }
 }
