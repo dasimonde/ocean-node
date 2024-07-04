@@ -314,7 +314,8 @@ describe('URL Storage getFileInfo tests', () => {
     storage = new UrlStorage({
       type: 'url',
       url: 'https://raw.githubusercontent.com/tbertinmahieux/MSongsDB/master/Tasks_Demos/CoverSongs/shs_dataset_test.txt',
-      method: 'get'
+      method: 'get',
+      fileHash: '1f7c17bed455f484f4d5ebc581cde6bc059977ef1e143b52a703f18b89c86a22'
     })
   })
 
@@ -334,13 +335,30 @@ describe('URL Storage getFileInfo tests', () => {
     const fileInfoRequest: FileInfoRequest = {
       type: FileObjectType.URL
     }
-    const fileInfo = await storage.getFileInfo(fileInfoRequest)
-
+    const fileInfo = await storage.getFileInfo(fileInfoRequest, true)
     assert(fileInfo[0].valid, 'File info is valid')
     expect(fileInfo[0].contentLength).to.equal('319520')
     expect(fileInfo[0].contentType).to.equal('text/plain; charset=utf-8')
     expect(fileInfo[0].name).to.equal('shs_dataset_test.txt')
     expect(fileInfo[0].type).to.equal('url')
+  })
+
+  it('Throws error when checksum fails', async () => {
+    const fileInfoRequest: FileInfoRequest = {
+      type: FileObjectType.URL
+    }
+    const storage2 = new UrlStorage({
+      type: 'url',
+      url: 'https://raw.githubusercontent.com/tbertinmahieux/MSongsDB/master/Tasks_Demos/CoverSongs/shs_dataset_test.txt',
+      method: 'get',
+      fileHash: 'wrong'
+    })
+    try {
+      await storage2.getFileInfo(fileInfoRequest, true)
+    } catch (err) {
+      // get log because in getFileInfo there is a console
+      expect(err.message).to.equal('Error checksum')
+    }
   })
 
   it('Throws error when URL is missing in request', async () => {
@@ -380,7 +398,8 @@ describe('Arweave Storage getFileInfo tests', function () {
   before(() => {
     storage = new ArweaveStorage({
       type: FileObjectType.ARWEAVE,
-      transactionId: 'gPPDyusRh2ZyFl-sQ2ODK6hAwCRBAOwp0OFKr0n23QE'
+      transactionId: 'gPPDyusRh2ZyFl-sQ2ODK6hAwCRBAOwp0OFKr0n23QE',
+      fileHash: '40f90cef24cf570149f27c3054752333b75081f6efc4e90ba1a2496b7adc9e48'
     })
   })
 
@@ -388,7 +407,7 @@ describe('Arweave Storage getFileInfo tests', function () {
     const fileInfoRequest: FileInfoRequest = {
       type: FileObjectType.ARWEAVE
     }
-    const fileInfo = await storage.getFileInfo(fileInfoRequest)
+    const fileInfo = await storage.getFileInfo(fileInfoRequest, true)
 
     assert(fileInfo[0].valid, 'File info is valid')
     assert(fileInfo[0].type === FileObjectType.ARWEAVE, 'Type is incorrect')
@@ -397,6 +416,23 @@ describe('Arweave Storage getFileInfo tests', function () {
       'Content type is incorrect'
     )
     assert(fileInfo[0].contentLength === '680782', 'Content length is incorrect')
+  })
+
+  it('Throws error when checksum fails', async () => {
+    const fileInfoRequest: FileInfoRequest = {
+      type: FileObjectType.ARWEAVE
+    }
+    const storage2 = new ArweaveStorage({
+      type: FileObjectType.ARWEAVE,
+      transactionId: 'gPPDyusRh2ZyFl-sQ2ODK6hAwCRBAOwp0OFKr0n23QE',
+      fileHash: 'wrong'
+    })
+    try {
+      await storage2.getFileInfo(fileInfoRequest, true)
+    } catch (err) {
+      // get log because in getFileInfo there is a console
+      expect(err.message).to.equal('Error checksum')
+    }
   })
 
   it('Throws error when transaction ID is missing in request', async () => {
@@ -491,7 +527,8 @@ describe('IPFS Storage getFileInfo tests', function () {
 
     storage = new IpfsStorage({
       type: FileObjectType.IPFS,
-      hash: 'QmRhsp7eghZtW4PktPC2wAHdKoy2LiF1n6UXMKmAhqQJUA'
+      hash: 'QmRhsp7eghZtW4PktPC2wAHdKoy2LiF1n6UXMKmAhqQJUA',
+      fileHash: '40f90cef24cf570149f27c3054752333b75081f6efc4e90ba1a2496b7adc9e48'
     })
   })
 
@@ -504,7 +541,7 @@ describe('IPFS Storage getFileInfo tests', function () {
     }
     // and only fire the test half way
     setTimeout(async () => {
-      const fileInfo = await storage.getFileInfo(fileInfoRequest)
+      const fileInfo = await storage.getFileInfo(fileInfoRequest, true)
       if (fileInfo && fileInfo.length > 0) {
         assert(fileInfo[0].valid, 'File info is valid')
         assert(fileInfo[0].type === 'ipfs', 'Type is incorrect')
@@ -515,6 +552,21 @@ describe('IPFS Storage getFileInfo tests', function () {
         } else expect(expectedTimeoutFailure(this.test.title)).to.be.equal(true)
       }
     }, DEFAULT_TEST_TIMEOUT)
+  })
+
+  it('Throws error when checksum fails', async () => {
+    const storage2 = new IpfsStorage({
+      type: FileObjectType.IPFS,
+      hash: 'QmRhsp7eghZtW4PktPC2wAHdKoy2LiF1n6UXMKmAhqQJUA',
+      fileHash: 'wrong'
+    })
+    const fileInfoRequest: FileInfoRequest = { type: FileObjectType.IPFS }
+    try {
+      await storage2.getFileInfo(fileInfoRequest, true)
+    } catch (err) {
+      // get log because in getFileInfo there is a console
+      expect(err.message).to.equal('Error checksum')
+    }
   })
 
   it('Throws error when hash is missing in request', async () => {

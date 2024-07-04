@@ -247,12 +247,16 @@ export class UrlStorage extends Storage {
     fileObject: UrlFileObject,
     forceChecksum: boolean
   ): Promise<FileInfoResponse> {
-    const { url, method } = fileObject
+    const url = await this.getDownloadUrl()
+    const { method, fileHash } = fileObject
     const { contentLength, contentType, contentChecksum } = await fetchFileMetadata(
       url,
       method,
       forceChecksum
     )
+    if (forceChecksum && contentChecksum !== fileHash) {
+      throw new Error(`Error checksum`)
+    }
     return {
       valid: true,
       contentLength,
@@ -328,12 +332,16 @@ export class ArweaveStorage extends Storage {
     fileObject: ArweaveFileObject,
     forceChecksum: boolean
   ): Promise<FileInfoResponse> {
+    const { fileHash } = fileObject
     const url = urlJoin(process.env.ARWEAVE_GATEWAY, fileObject.transactionId)
     const { contentLength, contentType, contentChecksum } = await fetchFileMetadata(
       url,
       'get',
       forceChecksum
     )
+    if (forceChecksum && contentChecksum !== fileHash) {
+      throw new Error(`Error checksum`)
+    }
     return {
       valid: true,
       contentLength,
@@ -407,12 +415,16 @@ export class IpfsStorage extends Storage {
     fileObject: IpfsFileObject,
     forceChecksum: boolean
   ): Promise<FileInfoResponse> {
-    const url = urlJoin(process.env.IPFS_GATEWAY, urlJoin('/ipfs', fileObject.hash))
+    const url = await this.getDownloadUrl()
+    const { fileHash } = fileObject
     const { contentLength, contentType, contentChecksum } = await fetchFileMetadata(
       url,
       'get',
       forceChecksum
     )
+    if (forceChecksum && contentChecksum !== fileHash) {
+      throw new Error(`Error checksum`)
+    }
     return {
       valid: true,
       contentLength,
