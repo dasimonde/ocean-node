@@ -254,7 +254,7 @@ export class UrlStorage extends Storage {
       method,
       forceChecksum
     )
-    if (forceChecksum && contentChecksum !== fileHash) {
+    if (forceChecksum && fileHash && contentChecksum !== fileHash) {
       throw new Error(`Error checksum`)
     }
     return {
@@ -339,7 +339,7 @@ export class ArweaveStorage extends Storage {
       'get',
       forceChecksum
     )
-    if (forceChecksum && contentChecksum !== fileHash) {
+    if (forceChecksum && fileHash && contentChecksum !== fileHash) {
       throw new Error(`Error checksum`)
     }
     return {
@@ -422,7 +422,7 @@ export class IpfsStorage extends Storage {
       'get',
       forceChecksum
     )
-    if (forceChecksum && contentChecksum !== fileHash) {
+    if (forceChecksum && fileHash && contentChecksum !== fileHash) {
       throw new Error(`Error checksum`)
     }
     return {
