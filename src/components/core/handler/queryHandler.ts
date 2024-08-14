@@ -7,7 +7,6 @@ import {
   buildInvalidParametersResponse,
   validateCommandParameters
 } from '../../httpRoutes/validateCommands.js'
-import { CORE_LOGGER } from '../../../utils/logging/common.js'
 
 export class QueryHandler extends Handler {
   validate(command: QueryCommand): ValidateParams {
@@ -29,7 +28,6 @@ export class QueryHandler extends Handler {
         status: { httpStatus: 200 }
       }
     } catch (error) {
-      CORE_LOGGER.error(`Error in QueryHandler: ${error.message}`)
       return {
         stream: null,
         status: { httpStatus: 500, error: 'Unknown error: ' + error.message }
@@ -51,7 +49,6 @@ export class QueryDdoStateHandler extends QueryHandler {
         status: { httpStatus: 200 }
       }
     } catch (error) {
-      CORE_LOGGER.error(`Error in QueryDdoStateHandler: ${error.message}`)
       return {
         stream: null,
         status: { httpStatus: 500, error: 'Unknown error: ' + error.message }

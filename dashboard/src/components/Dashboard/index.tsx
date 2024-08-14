@@ -9,7 +9,6 @@ import NodePeers from '../NodePeers'
 import Copy from '../Copy'
 import { NodeDataType } from '@Types/dataTypes'
 import SupportedStorage from './SupportedStorage'
-import SupportedNetworks from './SupportedNetworks'
 import Indexer from './Indexer'
 import AdminAccounts from './AdminAccounts'
 import NodePlatform from './NodePlatform'
@@ -74,7 +73,7 @@ export default function Dashboard() {
       const obj = {
         key,
         // @ts-expect-error - error is shown here because the key is used as an index.
-        value: JSON.stringify(data?.platform[key])
+        value: data?.platform[key]
       }
 
       arrayOfPlatformObjects.push(obj)
@@ -143,7 +142,6 @@ export default function Dashboard() {
           <div className={styles.body}>
             <ConnectionDetails />
             <Indexer data={data} />
-            <SupportedNetworks data={data} />
             <SupportedStorage data={data} />
             <AdminAccounts />
             <NodePlatform platformData={arrayOfPlatformObjects} />

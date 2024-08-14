@@ -26,7 +26,7 @@ export class ComputeGetResultHandler extends Handler {
           'Parameter : "consumerAddress" is not a valid web3 address'
         )
       }
-      if (isNaN(command.index) || command.index < 0) {
+      if (isNaN(command.index) || command.index < 1) {
         return buildInvalidRequestMessage('Invalid result index')
       }
     }
@@ -41,14 +41,12 @@ export class ComputeGetResultHandler extends Handler {
 
     let error = null
 
-    // signature message to check against
-    const message = task.consumerAddress + task.jobId + task.index.toString() + task.nonce
     const nonceCheckResult: NonceResponse = await checkNonce(
       this.getOceanNode().getDatabase().nonce,
       task.consumerAddress,
       parseInt(task.nonce),
       task.signature,
-      message // task.jobId + task.index.toString()
+      task.jobId + task.index.toString()
     )
 
     if (!nonceCheckResult.valid) {
@@ -86,23 +84,12 @@ export class ComputeGetResultHandler extends Handler {
       }
     }
     try {
-      const respStream = await engine.getComputeJobResult(
-        task.consumerAddress,
-        jobId,
-        task.index
-      )
-      const anyResp: any = respStream as any
-      const response: P2PCommandResponse = {
-        stream: respStream,
+      return {
+        stream: await engine.getComputeJobResult(task.consumerAddress, jobId, task.index),
         status: {
           httpStatus: 200
         }
       }
-      // need to pass the headers properly
-      if (anyResp.headers) {
-        response.status.headers = anyResp.headers
-      }
-      return response
     } catch (error) {
       CORE_LOGGER.error(error.message)
       return {

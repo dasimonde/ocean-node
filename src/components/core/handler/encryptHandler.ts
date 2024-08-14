@@ -12,7 +12,6 @@ import {
   buildInvalidRequestMessage,
   validateCommandParameters
 } from '../../httpRoutes/validateCommands.js'
-import { CORE_LOGGER } from '../../../utils/logging/common.js'
 
 // for encryption
 export const SUPPORTED_ENCRYPTION_ENCODINGS = ['string', 'base58']
@@ -35,7 +34,7 @@ export class EncryptHandler extends Handler {
       command.encryptionType = EncryptMethod.ECIES // defaults to ECIES encryption
     }
 
-    if (!SUPPORTED_ENCRYPTION_ENCODINGS.includes(command.encoding?.toLowerCase())) {
+    if (!SUPPORTED_ENCRYPTION_ENCODINGS.includes(command.encoding.toLowerCase())) {
       return buildInvalidRequestMessage(
         `Invalid parameter: "encoding" must be one of: ${SUPPORTED_ENCRYPTION_ENCODINGS}`
       )
@@ -56,11 +55,11 @@ export class EncryptHandler extends Handler {
     try {
       // prepare an empty array in case if
       let blobData: Uint8Array = new Uint8Array()
-      if (task.encoding?.toLowerCase() === 'string') {
+      if (task.encoding.toLowerCase() === 'string') {
         // get bytes from basic blob
         blobData = Uint8Array.from(Buffer.from(task.blob))
       }
-      if (task.encoding?.toLowerCase() === 'base58') {
+      if (task.encoding.toLowerCase() === 'base58') {
         // get bytes from a blob that is encoded in standard base58
         blobData = base58.base58_to_binary(task.blob)
       }
@@ -71,7 +70,6 @@ export class EncryptHandler extends Handler {
         status: { httpStatus: 200 }
       }
     } catch (error) {
-      CORE_LOGGER.error(`Error while encrypting data: ${error} `)
       return {
         stream: null,
         status: { httpStatus: 500, error: 'Unknown error: ' + error.message }
@@ -119,7 +117,7 @@ export class EncryptFileHandler extends Handler {
       }
       let encryptedContent: Buffer
       if (task.files) {
-        const storage = Storage.getStorageClass(task.files, config)
+        const storage = Storage.getStorageClass(task.files)
         encryptedContent = await storage.encryptContent(task.encryptionType)
       } else if (task.rawData !== null) {
         encryptedContent = await encrypt(task.rawData, task.encryptionType)
@@ -132,7 +130,6 @@ export class EncryptFileHandler extends Handler {
         }
       }
     } catch (error) {
-      CORE_LOGGER.error(`Error while encrypting file: ${error} `)
       return {
         stream: null,
         status: { httpStatus: 500, error: 'Unknown error: ' + error.message }

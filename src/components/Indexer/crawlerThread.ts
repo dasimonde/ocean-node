@@ -10,12 +10,11 @@ import {
 import { Blockchain } from '../../utils/blockchain.js'
 import { BlocksEvents, SupportedNetwork } from '../../@types/blockchain.js'
 import { LOG_LEVELS_STR } from '../../utils/logging/Logger.js'
-import { isDefined, sleep } from '../../utils/util.js'
+import { sleep } from '../../utils/util.js'
 import { EVENTS, INDEXER_CRAWLING_EVENTS, INDEXER_MESSAGES } from '../../utils/index.js'
 import { INDEXER_LOGGER } from '../../utils/logging/common.js'
 import { getDatabase } from '../../utils/database.js'
 import { JsonRpcApiProvider, Log, Signer } from 'ethers'
-import { DEVELOPMENT_CHAIN_ID } from '../../utils/address.js'
 
 export interface ReindexTask {
   txId: string
@@ -81,24 +80,15 @@ export async function processNetworkData(
   signer: Signer
 ): Promise<void> {
   stoppedCrawling = startedCrawling = false
-  let contractDeploymentBlock = getDeployedContractBlock(rpcDetails.chainId)
-  if (!isDefined(contractDeploymentBlock) && !isDefined(await getLastIndexedBlock())) {
-    if (rpcDetails.chainId === DEVELOPMENT_CHAIN_ID) {
-      rpcDetails.startBlock = contractDeploymentBlock = 0
-      INDEXER_LOGGER.warn(
-        'Cannot get block info for local network, starting from block 0'
-      )
-    } else {
-      INDEXER_LOGGER.logMessage(
-        `chain: ${rpcDetails.chainId} Both deployed block and last indexed block are null/undefined. Cannot proceed further on this chain`,
-        true
-      )
-
-      return null
-    }
+  const contractDeploymentBlock = getDeployedContractBlock(rpcDetails.chainId)
+  if (contractDeploymentBlock == null && (await getLastIndexedBlock()) == null) {
+    INDEXER_LOGGER.logMessage(
+      `chain: ${rpcDetails.chainId} Both deployed block and last indexed block are null. Cannot proceed further on this chain`,
+      true
+    )
+    return null
   }
   // if we defined a valid startBlock use it, oterwise start from deployed one
-
   const crawlingStartBlock =
     rpcDetails.startBlock && rpcDetails.startBlock > contractDeploymentBlock
       ? rpcDetails.startBlock
@@ -115,6 +105,7 @@ export async function processNetworkData(
       lockProccessing = true
       const lastIndexedBlock = await getLastIndexedBlock()
       const networkHeight = await getNetworkHeight(provider)
+
       const startBlock =
         lastIndexedBlock && lastIndexedBlock > crawlingStartBlock
           ? lastIndexedBlock
@@ -309,7 +300,6 @@ async function retryCrawlerWithDelay(
       return retryCrawlerWithDelay(blockchain, retryInterval)
     }
   } catch (err) {
-    INDEXER_LOGGER.error(`Error starting crawler: ${err.message}`)
     return false
   }
 }

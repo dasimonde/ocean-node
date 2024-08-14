@@ -170,8 +170,3 @@ export interface Asset extends DDO {
    */
   purgatory: Purgatory
 }
-
-export interface OrdableAssetResponse {
-  isOrdable: boolean
-  reason?: string
-}

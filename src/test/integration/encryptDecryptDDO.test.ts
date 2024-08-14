@@ -81,7 +81,6 @@ describe('Should encrypt and decrypt DDO', () => {
         [
           ENVIRONMENT_VARIABLES.PRIVATE_KEY,
           ENVIRONMENT_VARIABLES.RPCS,
-          ENVIRONMENT_VARIABLES.INDEXER_NETWORKS,
           ENVIRONMENT_VARIABLES.AUTHORIZED_DECRYPTERS,
           ENVIRONMENT_VARIABLES.DB_URL,
           ENVIRONMENT_VARIABLES.ADDRESS_FILE
@@ -89,7 +88,6 @@ describe('Should encrypt and decrypt DDO', () => {
         [
           '0xc594c6e5def4bab63ac29eed19a134c130388f74f019bc74b8f4389df2837a58',
           JSON.stringify(mockSupportedNetworks),
-          JSON.stringify([8996]),
           JSON.stringify([publisherAddress]),
           'http://localhost:8108/?apiKey=xyz',
           `${homedir}/.ocean/ocean-contracts/artifacts/address.json`
@@ -364,7 +362,7 @@ describe('Should encrypt and decrypt DDO', () => {
       signature
     }
     const response = await new DecryptDdoHandler(oceanNode).handle(decryptDDOTask)
-    expect(response.status.httpStatus).to.equal(200)
+    expect(response.status.httpStatus).to.equal(201)
     const decryptedStringDDO = await streamToString(response.stream as Readable)
     const stringDDO = JSON.stringify(genericAsset)
     expect(decryptedStringDDO).to.equal(stringDDO)
@@ -392,7 +390,7 @@ describe('Should encrypt and decrypt DDO', () => {
       signature
     }
     const response = await new DecryptDdoHandler(oceanNode).handle(decryptDDOTask)
-    expect(response.status.httpStatus).to.equal(200)
+    expect(response.status.httpStatus).to.equal(201)
     const decryptedStringDDO = await streamToString(response.stream as Readable)
     const stringDDO = JSON.stringify(genericAsset)
     expect(decryptedStringDDO).to.equal(stringDDO)

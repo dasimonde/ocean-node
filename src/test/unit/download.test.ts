@@ -145,11 +145,8 @@ describe('Should validate files structure for download', () => {
     const decryptedFilesString = Buffer.from(decryptedUrlBytes).toString()
     // back to JSON representation
     const decryptedFileData = JSON.parse(decryptedFilesString)
-    assert(
-      decryptedFileData.datatokenAddress?.toLowerCase() ===
-        otherDatatokenAddress?.toLowerCase()
-    )
-    assert(decryptedFileData.nftAddress?.toLowerCase() === otherNFTAddress?.toLowerCase())
+    assert(decryptedFileData.datatokenAddress === otherDatatokenAddress)
+    assert(decryptedFileData.nftAddress === otherNFTAddress)
   })
 
   after(async () => {

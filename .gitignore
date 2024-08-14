@@ -92,9 +92,7 @@ out
 
 # Nuxt.js build / generate output
 .nuxt
-
-/dist/*
-!/dist/dashboard
+dist
 
 # Gatsby files
 .cache/
@@ -142,16 +140,3 @@ typesense-data
 
 # VS CODE
 .vscode
-
-#performance test
-html-report.html
-
-# generate pk
-.pk.out
-.wallet.out
-# environment
-.env
-
-# databases
-*.sqlite
-databases/*

@@ -38,58 +38,34 @@ export async function handleProtocolCommands(connection: any) {
   let statusStream
   let sendStream = null
 
-  const buildWrongCommandStatus = function (errorCode: number, message: string) {
-    status = {
-      httpStatus: errorCode,
-      error: message
-    }
-    return status
-  }
-
   const denyList = await (await getConfiguration()).denyList
   if (denyList.peers.length > 0) {
     if (denyList.peers.includes(remotePeer.toString())) {
       P2P_LOGGER.error(`Incoming request denied to peer: ${remotePeer}`)
-
-      statusStream = new ReadableString(
-        JSON.stringify(buildWrongCommandStatus(403, 'Unauthorized request'))
-      )
-      pipe(statusStream, connection.stream.sink)
-      return
-    }
-  }
-
-  try {
-    // eslint-disable-next-line no-unreachable-loop
-    for await (const chunk of connection.stream.source) {
-      try {
-        const str = uint8ArrayToString(chunk.subarray())
-        task = JSON.parse(str) as Command
-      } catch (e) {
-        statusStream = new ReadableString(
-          JSON.stringify(buildWrongCommandStatus(400, 'Invalid command'))
-        )
-        pipe(statusStream, connection.stream.sink)
-        return
+      status = {
+        httpStatus: 403,
+        error: 'Unauthorized request'
       }
-    }
-    if (!task) {
-      P2P_LOGGER.error('Invalid or missing task/command data!')
-      statusStream = new ReadableString(
-        JSON.stringify(buildWrongCommandStatus(400, 'Invalid command'))
-      )
+      statusStream = new ReadableString(JSON.stringify(status))
       pipe(statusStream, connection.stream.sink)
       return
     }
-  } catch (err) {
-    P2P_LOGGER.log(
-      LOG_LEVELS_STR.LEVEL_ERROR,
-      `Unable to process P2P command: ${err.message}`
-    )
-    return
   }
 
-  P2P_LOGGER.logMessage('Performing P2P task: ' + JSON.stringify(task), true)
+  /* eslint no-unreachable-loop: ["error", { "ignore": ["ForInStatement", "ForOfStatement"] }] */
+  for await (const chunk of connection.stream.source) {
+    try {
+      const str = uint8ArrayToString(chunk.subarray())
+      task = JSON.parse(str) as Command
+    } catch (e) {
+      status = { httpStatus: 400, error: 'Invalid command' }
+      statusStream = new ReadableString(JSON.stringify(status))
+      pipe(statusStream, connection.stream.sink)
+      return
+    }
+    break
+  }
+  P2P_LOGGER.logMessage('Performing task: ' + JSON.stringify(task), true)
   // we get the handler from the running instance
   // no need to create a new instance of Handler on every request
   const handler: Handler = this.getCoreHandlers().getHandler(task.command)

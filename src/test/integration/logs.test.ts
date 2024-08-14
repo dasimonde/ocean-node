@@ -7,22 +7,13 @@ import {
   configureCustomDBTransport,
   getCustomLoggerForModule
 } from '../../utils/logging/Logger.js'
-import { ENVIRONMENT_VARIABLES } from '../../utils/constants.js'
-import {
-  buildEnvOverrideConfig,
-  OverrideEnvConfig,
-  setupEnvironment,
-  tearDownEnvironment
-} from '../utils/utils.js'
-
-let previousConfiguration: OverrideEnvConfig[]
 
 describe('LogDatabase CRUD', () => {
   let database: Database
   let logger: CustomNodeLogger
   const logEntry = {
     timestamp: Date.now(),
-    level: 'debug',
+    level: 'info',
     message: `Test log message ${Date.now()}`,
     moduleName: 'testModule-1',
     meta: 'Test meta information'
@@ -30,21 +21,14 @@ describe('LogDatabase CRUD', () => {
   let logId: string // Variable to store the ID of the created log entry
 
   before(async () => {
-    previousConfiguration = await setupEnvironment(
-      null,
-      buildEnvOverrideConfig([ENVIRONMENT_VARIABLES.LOG_DB], ['true'])
-    )
     const dbConfig = {
       url: 'http://localhost:8108/?apiKey=xyz'
     }
     database = await new Database(dbConfig)
     // Initialize logger with the custom transport that writes to the LogDatabase
-    logger = getCustomLoggerForModule(
-      LOGGER_MODULE_NAMES.HTTP,
-      LOG_LEVELS_STR.LEVEL_DEBUG
-    )
+    logger = getCustomLoggerForModule(LOGGER_MODULE_NAMES.HTTP, LOG_LEVELS_STR.LEVEL_INFO)
     // normally this is only added on production environments
-    logger = configureCustomDBTransport(database, logger)
+    configureCustomDBTransport(database, logger)
   })
 
   it('insert log', async () => {
@@ -72,30 +56,24 @@ describe('LogDatabase CRUD', () => {
   it('should save a log in the database when a log event is triggered', async () => {
     const newLogEntry = {
       timestamp: Date.now(),
-      level: 'debug',
+      level: 'info',
       message: `NEW Test log message ${Date.now()}`
     }
     // Trigger a log event which should be saved in the database
     logger.log(newLogEntry.level, newLogEntry.message)
+
     // Wait for the log to be written to the database
     await new Promise((resolve) => setTimeout(resolve, 1000)) // Delay to allow log to be processed
 
     // Define the time frame for the log retrieval
-    const startTime = new Date(Date.now() - 3000) // 3 seconds ago
+    const startTime = new Date(Date.now() - 10000) // 10 seconds ago
     const endTime = new Date() // current time
 
-    // Retrieve the latest log entries
-    let logs = await database.logs.retrieveMultipleLogs(
-      startTime,
-      endTime,
-      200,
-      LOGGER_MODULE_NAMES.HTTP,
-      LOG_LEVELS_STR.LEVEL_DEBUG
-    )
-    logs = logs.filter((log) => log.message === newLogEntry.message)
+    // Retrieve the latest log entry
+    const logs = await database.logs.retrieveMultipleLogs(startTime, endTime, 1)
 
     expect(logs?.length).to.equal(1)
-    expect(Number(logs?.[0].id)).to.greaterThan(Number(logId))
+    expect(logs?.[0].id).to.equal(String(Number(logId) + 1))
     expect(logs?.[0].level).to.equal(newLogEntry.level)
     expect(logs?.[0].message).to.equal(newLogEntry.message)
     expect(logs?.[0].moduleName).to.equal('HTTP')
@@ -104,7 +82,7 @@ describe('LogDatabase CRUD', () => {
   it('should save a log in the database when a log.logMessage is called', async () => {
     const newLogEntry = {
       timestamp: Date.now(),
-      level: 'debug',
+      level: 'info',
       message: `logMessage: Test log message ${Date.now()}`,
       moduleName: 'testModule-3',
       meta: 'Test meta information'
@@ -116,15 +94,14 @@ describe('LogDatabase CRUD', () => {
     await new Promise((resolve) => setTimeout(resolve, 1000)) // Delay to allow log to be processed
 
     // Define the time frame for the log retrieval
-    const startTime = new Date(Date.now() - 5000) // 5 seconds ago
+    const startTime = new Date(Date.now() - 10000) // 10 seconds ago
     const endTime = new Date() // current time
 
     // Retrieve the latest log entry
-    let logs = await database.logs.retrieveMultipleLogs(startTime, endTime, 10)
-    logs = logs.filter((log) => log.message === newLogEntry.message)
+    const logs = await database.logs.retrieveMultipleLogs(startTime, endTime, 1)
 
     expect(logs?.length).to.equal(1)
-    expect(Number(logs?.[0].id)).to.greaterThan(Number(logId))
+    expect(logs?.[0].id).to.equal(String(Number(logId) + 2))
     expect(logs?.[0].level).to.equal(newLogEntry.level)
     expect(logs?.[0].message).to.equal(newLogEntry.message)
     expect(logs?.[0].moduleName).to.equal('HTTP')
@@ -133,7 +110,7 @@ describe('LogDatabase CRUD', () => {
   it('should save a log in the database when a log.logMessageWithEmoji is called', async () => {
     const newLogEntry = {
       timestamp: Date.now(),
-      level: 'debug',
+      level: 'info',
       message: `logMessageWithEmoji: Test log message ${Date.now()}`,
       moduleName: 'testModule-4',
       meta: 'Test meta information'
@@ -145,22 +122,17 @@ describe('LogDatabase CRUD', () => {
     await new Promise((resolve) => setTimeout(resolve, 1000)) // Delay to allow log to be processed
 
     // Define the time frame for the log retrieval
-    const startTime = new Date(Date.now() - 5000) // 5 seconds ago
+    const startTime = new Date(Date.now() - 10000) // 10 seconds ago
     const endTime = new Date() // current time
 
     // Retrieve the latest log entry
-    let logs = await database.logs.retrieveMultipleLogs(startTime, endTime, 10)
-    logs = logs.filter((log) => log.message.includes(newLogEntry.message))
+    const logs = await database.logs.retrieveMultipleLogs(startTime, endTime, 1)
 
     expect(logs?.length).to.equal(1)
-    expect(Number(logs?.[0].id)).to.greaterThan(Number(logId))
+    expect(logs?.[0].id).to.equal(String(Number(logId) + 3))
     expect(logs?.[0].level).to.equal(newLogEntry.level)
     assert(logs?.[0].message)
     expect(logs?.[0].moduleName).to.equal('HTTP')
-  })
-
-  after(async () => {
-    await tearDownEnvironment(previousConfiguration)
   })
 })
 
@@ -171,11 +143,6 @@ describe('LogDatabase retrieveMultipleLogs with specific parameters', () => {
   const endTime = new Date() // now
 
   before(async () => {
-    previousConfiguration = await setupEnvironment(
-      null,
-      buildEnvOverrideConfig([ENVIRONMENT_VARIABLES.LOG_DB], ['true'])
-    )
-
     const dbConfig = {
       url: 'http://localhost:8108/?apiKey=xyz'
     }
@@ -196,7 +163,7 @@ describe('LogDatabase retrieveMultipleLogs with specific parameters', () => {
   })
 
   it('should retrieve logs with a specific level', async () => {
-    const level = 'debug'
+    const level = 'info'
     const logs = await database.logs.retrieveMultipleLogs(
       startTime,
       endTime,
@@ -209,7 +176,7 @@ describe('LogDatabase retrieveMultipleLogs with specific parameters', () => {
 
   it('should retrieve logs with both a specific moduleName and level', async () => {
     const moduleName = 'testModule-1'
-    const level = 'debug'
+    const level = 'info'
     const logs = await database.logs.retrieveMultipleLogs(
       startTime,
       endTime,
@@ -236,7 +203,7 @@ describe('LogDatabase retrieveMultipleLogs with specific parameters', () => {
     let database: Database
     const logEntry = {
       timestamp: Date.now(),
-      level: 'debug',
+      level: 'info',
       message: 'Test log message for single deletion',
       moduleName: 'testModule-2',
       meta: 'Test meta information for single deletion'
@@ -321,34 +288,26 @@ describe('LogDatabase retrieveMultipleLogs with specific parameters', () => {
     const elapsedTimeInMs = endPerfTime[0] * 1000 + endPerfTime[1] / 1e6
     expect(elapsedTimeInMs).to.be.below(1000) // threshold
   })
-
-  after(async () => {
-    await tearDownEnvironment(previousConfiguration)
-  })
 })
 
 describe('LogDatabase deleteOldLogs', () => {
   let database: Database
-  const oldLogEntry = {
+  const logEntry = {
     timestamp: new Date().getTime() - 31 * 24 * 60 * 60 * 1000, // 31 days ago
-    level: 'debug',
+    level: 'info',
     message: 'Old log message for deletion test',
     moduleName: 'testModule-1',
     meta: 'Test meta information'
   }
   const recentLogEntry = {
     timestamp: new Date().getTime(), // current time
-    level: 'debug',
+    level: 'info',
     message: 'Recent log message not for deletion',
     moduleName: 'testModule-1',
     meta: 'Test meta information'
   }
 
   before(async () => {
-    previousConfiguration = await setupEnvironment(
-      null,
-      buildEnvOverrideConfig([ENVIRONMENT_VARIABLES.LOG_DB], ['true'])
-    )
     const dbConfig = {
       url: 'http://localhost:8108/?apiKey=xyz'
     }
@@ -356,7 +315,7 @@ describe('LogDatabase deleteOldLogs', () => {
   })
 
   it('should insert an old log and a recent log', async () => {
-    const oldLogResult = await database.logs.insertLog(oldLogEntry)
+    const oldLogResult = await database.logs.insertLog(logEntry)
     expect(oldLogResult).to.include.keys(
       'id',
       'timestamp',
@@ -378,28 +337,19 @@ describe('LogDatabase deleteOldLogs', () => {
   })
 
   it('should delete logs older than 30 days', async () => {
-    const deleted = await database.logs.deleteOldLogs()
-    assert(deleted > 0, 'could not delete old logs')
+    await database.logs.deleteOldLogs()
 
     // Adjust the time window to ensure we don't catch the newly inserted log
-    let startTime = new Date(oldLogEntry.timestamp)
-    let endTime = new Date()
-    let logs = await database.logs.retrieveMultipleLogs(startTime, endTime, 100)
+    const startTime = new Date(logEntry.timestamp)
+    const endTime = new Date()
+    const logs = await database.logs.retrieveMultipleLogs(startTime, endTime, 100)
 
     // Check that the old log is not present, but the recent one is
-    const oldLogPresent = logs?.some((log) => log.message === oldLogEntry.message)
-    assert(oldLogPresent === false, 'Old logs are still present')
-
-    // since we have many logs going to DB by default, we need to re-frame the timestamp to grab it
-    startTime = new Date(recentLogEntry.timestamp - 1000)
-    endTime = new Date(recentLogEntry.timestamp + 1000)
-    logs = await database.logs.retrieveMultipleLogs(startTime, endTime, 100)
+    const oldLogPresent = logs?.some((log) => log.message === logEntry.message)
     const recentLogPresent = logs?.some((log) => log.message === recentLogEntry.message)
-    assert(recentLogPresent === true, 'Recent logs are not present')
-  })
 
-  after(async () => {
-    await tearDownEnvironment(previousConfiguration)
+    assert(oldLogPresent === false, 'Old logs are still present')
+    assert(recentLogPresent === true, 'Recent logs are not present')
   })
 })
 describe('LogDatabase retrieveMultipleLogs with pagination', () => {
@@ -407,10 +357,6 @@ describe('LogDatabase retrieveMultipleLogs with pagination', () => {
   const logCount = 10 // Total number of logs to insert and also the limit for logs per page
 
   before(async () => {
-    previousConfiguration = await setupEnvironment(
-      null,
-      buildEnvOverrideConfig([ENVIRONMENT_VARIABLES.LOG_DB], ['true'])
-    )
     const dbConfig = {
       url: 'http://localhost:8108/?apiKey=xyz'
     }
@@ -465,7 +411,7 @@ describe('LogDatabase retrieveMultipleLogs with pagination', () => {
   })
 
   it('should return empty results for a non-existent page', async () => {
-    const nonExistentPage = 30000 // Assuming this page doesn't exist
+    const nonExistentPage = 100 // Assuming this page doesn't exist
     const logs = await database.logs.retrieveMultipleLogs(
       new Date(Date.now() - 10000), // 10 seconds ago
       new Date(), // now
@@ -475,9 +421,5 @@ describe('LogDatabase retrieveMultipleLogs with pagination', () => {
       nonExistentPage
     )
     assert.isEmpty(logs, 'Expected logs to be empty')
-  })
-
-  after(async () => {
-    await tearDownEnvironment(previousConfiguration)
   })
 })

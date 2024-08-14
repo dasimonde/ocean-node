@@ -20,12 +20,6 @@ export interface MetadataAlgorithm {
   rawcode?: string
 
   /**
-   * Format
-   * @type {string}
-   */
-  format?: string
-
-  /**
    * Object describing the Docker container image.
    * @type {Object}
    */

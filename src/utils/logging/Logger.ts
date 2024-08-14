@@ -109,18 +109,14 @@ export class CustomOceanNodesTransport extends Transport {
     const document = {
       level: info.level,
       message: info.message,
-      moduleName: info.moduleName || LOGGER_MODULE_NAMES.ALL_COMBINED,
+      moduleName: info.moduleName || 'undefined',
       timestamp: Date.now(), // Storing the current timestamp as a Unix epoch timestamp (number)
       meta: JSON.stringify(info.meta) // Ensure meta is a string
     }
 
     try {
       // Use the insertLog method of the LogDatabase instance
-      if (
-        this.dbInstance &&
-        this.dbInstance.logs // &&
-        // !isTypesenseIgnoreLogMessage(document.moduleName, document.message)
-      ) {
+      if (this.dbInstance && this.dbInstance.logs) {
         // double check before writing
         await this.dbInstance.logs.insertLog(document)
       }
@@ -140,23 +136,6 @@ let customDBTransport: CustomOceanNodesTransport = null
 export const MAX_LOGGER_INSTANCES = 10
 export const NUM_LOGGER_INSTANCES = INSTANCE_COUNT
 
-// log locations
-function USE_FILE_TRANSPORT(): boolean {
-  return process.env.LOG_FILES && process.env.LOG_FILES !== 'false'
-}
-
-export function USE_DB_TRANSPORT(): boolean {
-  return process.env.LOG_DB && process.env.LOG_DB !== 'false'
-}
-
-// default to true, if not explicitly set otherwise AND no other locations defined
-function USE_CONSOLE_TRANSPORT(): boolean {
-  return (
-    (process.env.LOG_CONSOLE && process.env.LOG_CONSOLE !== 'false') ||
-    (!USE_FILE_TRANSPORT() && !USE_DB_TRANSPORT())
-  )
-}
-
 // if not set, then gets default 'development' level & colors
 export function isDevelopmentEnvironment(): boolean {
   const env = process.env.NODE_ENV || 'development'
@@ -167,8 +146,8 @@ export function isDevelopmentEnvironment(): boolean {
 const getConfiguredLogLevel = (): string | null => {
   const envLevel = process.env.LOG_LEVEL
   // do case insensitive check
-  if (envLevel && Object.values(LOG_LEVELS_STR).includes(envLevel?.toLowerCase())) {
-    return envLevel?.toLowerCase()
+  if (envLevel && Object.values(LOG_LEVELS_STR).includes(envLevel.toLowerCase())) {
+    return envLevel.toLowerCase()
   }
   return null
 }
@@ -221,7 +200,7 @@ function getDefaultOptions(moduleName: string): winston.LoggerOptions {
     level: getDefaultLevel(),
     levels: LOG_LEVELS_NUM,
     format,
-    transports: getDefaultLoggerTransports(moduleName),
+    transports: [buildCustomFileTransport(moduleName), defaultConsoleTransport],
     exceptionHandlers: [
       new winston.transports.File({ dirname: 'logs/', filename: EXCEPTIONS_HANDLER })
     ]
@@ -278,14 +257,12 @@ export function buildCustomFileTransport(
 export function getDefaultLoggerTransports(
   moduleOrComponentName: string
 ): winston.transport[] {
-  const transports: winston.transport[] = []
-  // account for runtime changes done by tests (force read again value)
-  if (USE_FILE_TRANSPORT()) {
-    // always log to file
-    transports.push(buildCustomFileTransport(moduleOrComponentName))
-  }
-
-  if (USE_CONSOLE_TRANSPORT()) {
+  // always log to file
+  const transports: winston.transport[] = [
+    buildCustomFileTransport(moduleOrComponentName)
+  ]
+  // only log to console if development
+  if (isDevelopmentEnvironment()) {
     transports.push(defaultConsoleTransport)
   }
   return transports
@@ -456,11 +433,12 @@ export class CustomNodeLogger {
     includeModuleName: boolean = false
   ) {
     // lazy check db custom transport, needed beacause of dependency cycles
-    const usingDBTransport = this.hasDBTransport()
-    if (customDBTransport !== null && USE_DB_TRANSPORT() && !usingDBTransport) {
+    if (
+      customDBTransport !== null && // if null then what?
+      !isDevelopmentEnvironment() &&
+      !this.hasDBTransport()
+    ) {
       this.addTransport(customDBTransport)
-    } else if (usingDBTransport && !USE_DB_TRANSPORT()) {
-      this.removeTransport(this.getDBTransport())
     }
 
     this.getLogger().log(
@@ -468,7 +446,6 @@ export class CustomNodeLogger {
       includeModuleName ? this.buildMessage(message) : message,
       { moduleName: this.getModuleName().toUpperCase() }
     )
-    // }
   }
 
   logMessage(message: string, includeModuleName: boolean = false) {
@@ -567,7 +544,6 @@ export function configureCustomDBTransport(
   }
   if (!logger.hasDBTransport()) {
     logger.addTransport(customDBTransport)
-    logger.logMessage('Adding DB transport to Logger: ' + logger.getModuleName())
   }
   return logger
 }

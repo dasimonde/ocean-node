@@ -8,7 +8,7 @@ import { DATABASE_LOGGER } from '../../../utils/logging/common.js'
 export function getDefaultErrorResponse(errorMessage: string): P2PCommandResponse {
   return {
     stream: null,
-    status: { httpStatus: 500, error: 'Unknown error: ' + errorMessage }
+    status: { httpStatus: 501, error: 'Unknown error: ' + errorMessage }
   }
 }
 
@@ -101,7 +101,7 @@ export async function checkNonce(
   consumer: string,
   nonce: number,
   signature: string,
-  message: string
+  ddoId: string = null
 ): Promise<NonceResponse> {
   try {
     // get nonce from db
@@ -116,7 +116,7 @@ export async function checkNonce(
       previousNonce, // will return 0 if none exists
       consumer,
       signature,
-      message // String(ddoId + nonce)
+      String(ddoId + nonce)
     )
     if (validate.valid) {
       const updateStatus = await updateNonce(db, consumer, nonce)
@@ -155,7 +155,6 @@ function validateNonceAndSignature(
   message: string = null
 ): NonceResponse {
   // check if is bigger than previous nonce
-
   if (nonce > existingNonce) {
     // nonce good
     // now validate signature
@@ -169,10 +168,8 @@ function validateNonceAndSignature(
     const addressFromBytesSignature = ethers.verifyMessage(messageHashBytes, signature)
 
     if (
-      ethers.getAddress(addressFromHashSignature)?.toLowerCase() ===
-        ethers.getAddress(consumer)?.toLowerCase() ||
-      ethers.getAddress(addressFromBytesSignature)?.toLowerCase() ===
-        ethers.getAddress(consumer)?.toLowerCase()
+      ethers.getAddress(addressFromHashSignature) === ethers.getAddress(consumer) ||
+      ethers.getAddress(addressFromBytesSignature) === ethers.getAddress(consumer)
     ) {
       // update nonce on DB, return OK
       return {

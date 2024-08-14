@@ -78,36 +78,31 @@ computeRoutes.get(`${SERVICES_API_BASE_PATH}/computeEnvironments`, async (req, r
 computeRoutes.post(`${SERVICES_API_BASE_PATH}/compute`, async (req, res) => {
   try {
     HTTP_LOGGER.logMessage(
-      `ComputeStartCommand request received as body params: ${JSON.stringify(req.body)}`,
+      `ComputeStartCommand request received with query: ${JSON.stringify(req.query)}`,
       true
     )
 
     const startComputeTask: ComputeStartCommand = {
       command: PROTOCOL_COMMANDS.COMPUTE_START,
-      node: (req.body.node as string) || null,
-      consumerAddress: (req.body.consumerAddress as string) || null,
-      signature: (req.body.signature as string) || null,
-      nonce: (req.body.nonce as string) || null,
-      environment: (req.body.environment as string) || null,
-      algorithm: (req.body.algorithm as ComputeAlgorithm) || null,
-      dataset: (req.body.dataset as unknown as ComputeAsset) || null
+      node: (req.query.node as string) || null,
+      consumerAddress: (req.query.consumerAddress as string) || null,
+      signature: (req.query.signature as string) || null,
+      nonce: (req.query.nonce as string) || null,
+      environment: (req.query.environment as string) || null,
+      algorithm: (req.query.algorithm as ComputeAlgorithm) || null,
+      dataset: (req.query.dataset as unknown as ComputeAsset) || null
     }
-    if (req.body.additionalDatasets) {
+    if (req.query.additionalDatasets) {
       startComputeTask.additionalDatasets = req.query
         .additionalDatasets as unknown as ComputeAsset[]
     }
-    if (req.body.output) {
-      startComputeTask.output = req.body.output as ComputeOutput
+    if (req.query.output) {
+      startComputeTask.output = req.query.output as ComputeOutput
     }
 
-    const response = await new ComputeStartHandler(req.oceanNode).handle(startComputeTask)
-    if (response?.status?.httpStatus === 200) {
-      const jobs = await streamToObject(response.stream as Readable)
-      res.status(200).json(jobs)
-    } else {
-      HTTP_LOGGER.log(LOG_LEVELS_STR.LEVEL_INFO, `Error: ${response?.status?.error}`)
-      res.status(response?.status.httpStatus).json(response?.status?.error)
-    }
+    const response = await new ComputeStartHandler(req.oceanNode).handle(startComputeTask) // get compute environments
+    const jobs = await streamToObject(response.stream as Readable)
+    res.status(200).json(jobs)
   } catch (error) {
     HTTP_LOGGER.log(LOG_LEVELS_STR.LEVEL_ERROR, `Error: ${error}`)
     res.status(500).send('Internal Server Error')
@@ -117,9 +112,7 @@ computeRoutes.post(`${SERVICES_API_BASE_PATH}/compute`, async (req, res) => {
 computeRoutes.put(`${SERVICES_API_BASE_PATH}/compute`, async (req, res) => {
   try {
     HTTP_LOGGER.logMessage(
-      `ComputeStopCommand request received as body parameters : ${JSON.stringify(
-        req.body
-      )}`,
+      `ComputeStopCommand request received with query: ${JSON.stringify(req.query)}`,
       true
     )
 
@@ -129,8 +122,7 @@ computeRoutes.put(`${SERVICES_API_BASE_PATH}/compute`, async (req, res) => {
       consumerAddress: (req.query.consumerAddress as string) || null,
       signature: (req.query.signature as string) || null,
       nonce: (req.query.nonce as string) || null,
-      jobId: (req.query.jobId as string) || null,
-      agreementId: (req.query.agreementId as string) || null
+      jobId: (req.query.jobId as string) || null
     }
     const response = await new ComputeStopHandler(req.oceanNode).handle(stopComputeTask)
     const jobs = await streamToObject(response.stream as Readable)
@@ -175,7 +167,7 @@ computeRoutes.get(`${SERVICES_API_BASE_PATH}/computeResult`, async (req, res) =>
       command: PROTOCOL_COMMANDS.COMPUTE_GET_RESULT,
       node: (req.query.node as string) || null,
       consumerAddress: (req.query.consumerAddress as string) || null,
-      index: req.query.index ? Number(req.query.index) : null, // can't be parseInt() because that excludes index 0
+      index: parseInt(req.query.index as string) || null,
       jobId: (req.query.jobId as string) || null,
       signature: (req.query.signature as string) || null,
       nonce: (req.query.nonce as string) || null

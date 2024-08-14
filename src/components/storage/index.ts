@@ -6,25 +6,26 @@ import {
   IpfsFileObject,
   StorageReadable,
   UrlFileObject,
-  EncryptMethod
+  EncryptMethod,
+  S3FileObject,
+  S3Object
 } from '../../@types/fileObject.js'
-import { OceanNodeConfig } from '../../@types/OceanNode.js'
-import { fetchFileMetadata } from '../../utils/asset.js'
 import axios from 'axios'
 import urlJoin from 'url-join'
+import { fetchFileMetadata } from '../../utils/asset.js'
 import { encrypt as encryptData, decrypt as decryptData } from '../../utils/crypt.js'
 import { Readable } from 'stream'
-import { CORE_LOGGER } from '../../utils/logging/common.js'
+import { getConfiguration } from '../../utils/index.js'
+import AWS from 'aws-sdk'
+import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3'
 
 export abstract class Storage {
-  private file: UrlFileObject | IpfsFileObject | ArweaveFileObject
-  config: OceanNodeConfig
+  private file: UrlFileObject | IpfsFileObject | ArweaveFileObject | S3FileObject
+
   public constructor(
-    file: UrlFileObject | IpfsFileObject | ArweaveFileObject,
-    config: OceanNodeConfig
+    file: UrlFileObject | IpfsFileObject | ArweaveFileObject | S3FileObject
   ) {
     this.file = file
-    this.config = config
   }
 
   abstract validate(): [boolean, string]
@@ -59,19 +60,20 @@ export abstract class Storage {
   }
 
   static getStorageClass(
-    file: any,
-    config: OceanNodeConfig
-  ): UrlStorage | IpfsStorage | ArweaveStorage {
+    file: any
+  ): UrlStorage | IpfsStorage | ArweaveStorage | S3Storage {
     const { type } = file
     switch (
-      type?.toLowerCase() // case insensitive
+      type.toLowerCase() // case insensitive
     ) {
       case FileObjectType.URL:
-        return new UrlStorage(file, config)
+        return new UrlStorage(file)
       case FileObjectType.IPFS:
-        return new IpfsStorage(file, config)
+        return new IpfsStorage(file)
       case FileObjectType.ARWEAVE:
-        return new ArweaveStorage(file, config)
+        return new ArweaveStorage(file)
+      case FileObjectType.S3:
+        return new S3Storage(file)
       default:
         throw new Error(`Invalid storage type: ${type}`)
     }
@@ -97,7 +99,7 @@ export abstract class Storage {
         response.push(fileInfo)
       }
     } catch (error) {
-      CORE_LOGGER.error(error)
+      console.log(error)
     }
     return response
   }
@@ -125,7 +127,7 @@ export abstract class Storage {
   }
 
   async decrypt() {
-    const { keys } = this.config
+    const { keys } = await getConfiguration()
     const nodeId = keys.peerId.toString()
 
     if (!this.canDecrypt(nodeId)) {
@@ -180,8 +182,8 @@ export abstract class Storage {
 }
 
 export class UrlStorage extends Storage {
-  public constructor(file: UrlFileObject, config: OceanNodeConfig) {
-    super(file, config)
+  public constructor(file: UrlFileObject) {
+    super(file)
     const [isValid, message] = this.validate()
     if (isValid === false) {
       throw new Error(`Error validationg the URL file: ${message}`)
@@ -193,19 +195,8 @@ export class UrlStorage extends Storage {
     if (!file.url || !file.method) {
       return [false, 'URL or method are missing']
     }
-    if (!['get', 'post'].includes(file.method?.toLowerCase())) {
+    if (!['get', 'post'].includes(file.method.toLowerCase())) {
       return [false, 'Invalid method for URL']
-    }
-    if (this.config && this.config.unsafeURLs) {
-      for (const regex of this.config.unsafeURLs) {
-        try {
-          // eslint-disable-next-line security/detect-non-literal-regexp
-          const pattern = new RegExp(regex)
-          if (pattern.test(file.url)) {
-            return [false, 'URL is marked as unsafe']
-          }
-        } catch (e) {}
-      }
     }
     if (this.isFilePath() === true) {
       return [false, 'URL looks like a file path']
@@ -244,7 +235,7 @@ export class UrlStorage extends Storage {
       valid: true,
       contentLength,
       contentType,
-      checksum: contentChecksum,
+      contentChecksum,
       name: new URL(url).pathname.split('/').pop() || '',
       type: 'url',
       encryptedBy: fileObject.encryptedBy,
@@ -266,8 +257,8 @@ export class UrlStorage extends Storage {
 }
 
 export class ArweaveStorage extends Storage {
-  public constructor(file: ArweaveFileObject, config: OceanNodeConfig) {
-    super(file, config)
+  public constructor(file: ArweaveFileObject) {
+    super(file)
 
     const [isValid, message] = this.validate()
     if (isValid === false) {
@@ -323,7 +314,7 @@ export class ArweaveStorage extends Storage {
       valid: true,
       contentLength,
       contentType,
-      checksum: contentChecksum,
+      contentChecksum,
       name: '', // Never send the file name for Arweave as it may leak the transaction ID
       type: 'arweave',
       encryptedBy: fileObject.encryptedBy,
@@ -344,8 +335,8 @@ export class ArweaveStorage extends Storage {
 }
 
 export class IpfsStorage extends Storage {
-  public constructor(file: IpfsFileObject, config: OceanNodeConfig) {
-    super(file, config)
+  public constructor(file: IpfsFileObject) {
+    super(file)
 
     const [isValid, message] = this.validate()
     if (isValid === false) {
@@ -395,7 +386,7 @@ export class IpfsStorage extends Storage {
       valid: true,
       contentLength,
       contentType,
-      checksum: contentChecksum,
+      contentChecksum,
       name: '',
       type: 'ipfs',
       encryptedBy: fileObject.encryptedBy,
@@ -412,5 +403,128 @@ export class IpfsStorage extends Storage {
       method: 'get'
     })
     return await encryptData(response.data, encryptionType)
+  }
+}
+
+export class S3Storage extends Storage {
+  public constructor(file: S3FileObject) {
+    super(file)
+    const [isValid, message] = this.validate()
+    if (isValid === false) {
+      throw new Error(`Error validationg the S3 file: ${message}`)
+    }
+  }
+
+  validate(): [boolean, string] {
+    const file: S3FileObject = this.getFile() as S3FileObject
+    if (!file.s3Access) {
+      return [false, 'Missing s3Access']
+    }
+    return [true, '']
+  }
+
+  parseDecryptedStream(decryptedStream: Readable): Promise<S3Object> {
+    return new Promise((resolve, reject) => {
+      let data = ''
+      decryptedStream.on('data', (chunk) => {
+        data += chunk
+      })
+      decryptedStream.on('end', () => {
+        try {
+          const parsedData = JSON.parse(data)
+          resolve(parsedData)
+        } catch (error) {
+          reject(error)
+        }
+      })
+      decryptedStream.on('error', (error) => {
+        reject(error)
+      })
+    })
+  }
+
+  isFilePath(): boolean {
+    const { endpoint } = this.getFile().s3Access
+    return endpoint.includes('.')
+  }
+
+  getDownloadUrl(): string {
+    const { s3Access } = this.getFile()
+    return JSON.stringify(s3Access)
+  }
+
+  async fetchDataContent(): Promise<any> {
+    const s3Obj = await this.getFile().s3Access
+    const spacesEndpoint = new AWS.Endpoint(s3Obj.endpoint)
+    const s3 = new AWS.S3({
+      endpoint: spacesEndpoint,
+      accessKeyId: s3Obj.accessKeyId,
+      secretAccessKey: s3Obj.secretAccessKey,
+      region: s3Obj.region
+    })
+
+    const params = {
+      Bucket: s3Obj.bucket,
+      Key: s3Obj.objectKey
+    }
+    try {
+      const data = await s3.getObject(params).promise()
+      console.log('Successfully fetched data from S3')
+      return data
+    } catch (err) {
+      console.error('Error fetching object from S3:', err)
+    }
+  }
+
+  async fetchDataStream(): Promise<any> {
+    const s3Obj = await this.getFile().s3Access
+    const spacesEndpoint = new AWS.Endpoint(s3Obj.endpoint)
+    const s3Client = new S3Client({
+      endpoint: {
+        hostname: spacesEndpoint.hostname,
+        protocol: spacesEndpoint.protocol,
+        path: '/'
+      },
+      region: s3Obj.region,
+      credentials: {
+        accessKeyId: s3Obj.accessKeyId,
+        secretAccessKey: s3Obj.secretAccessKey
+      }
+    })
+
+    const params = {
+      Bucket: s3Obj.bucket,
+      Key: s3Obj.objectKey
+    }
+    try {
+      const response = await s3Client.send(new GetObjectCommand(params))
+
+      const dataStream = response.Body
+      console.log('Successfully retrieved object from S3')
+      return dataStream
+    } catch (err) {
+      console.error('Error fetching object from S3:', err)
+    }
+  }
+
+  async fetchSpecificFileMetadata(): Promise<FileInfoResponse> {
+    const data = await this.fetchDataContent()
+    const s3Obj = await this.getFile().s3Access
+    return {
+      valid: true,
+      contentLength: data.ContentLength,
+      contentType: data.ContentType,
+      name: s3Obj.objectKey,
+      type: 's3',
+      encryptedBy: this.getFile().encryptedBy,
+      encryptMethod: this.getFile().encryptMethod
+    }
+  }
+
+  async encryptContent(
+    encryptionType: EncryptMethod.AES | EncryptMethod.ECIES
+  ): Promise<Buffer> {
+    const data = await this.fetchDataContent()
+    return await encryptData(data, encryptionType)
   }
 }

@@ -39,10 +39,7 @@ describe('Purgatory test', () => {
     assert(accountPurgatory, 'account purgatory list could not be fetched.')
     let res: any
     for (const acc of accountPurgatory) {
-      if (
-        acc.address?.toLowerCase() ===
-        '0xAD23fC9D943018C34aC55E8DA29AF700A2Fd0FeB'?.toLowerCase()
-      ) {
+      if (acc.address === '0xAD23fC9D943018C34aC55E8DA29AF700A2Fd0FeB') {
         res = acc
         break
       }

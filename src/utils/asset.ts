@@ -56,9 +56,7 @@ export async function fetchFileMetadata(
       }
     }
     contentLength = totalSize
-  } catch (error) {
-    CORE_LOGGER.error(error)
-  }
+  } catch (error) {}
 
   return {
     contentLength: contentLength.toString(),

@@ -177,7 +177,7 @@ export class C2DEngineOPFK8 extends C2DEngine {
       // we need to add hash to each env id
       for (const [index, val] of data.entries()) {
         data[index].id = `${clusterHash}-${val.id}`
-        if (!data[index].feeToken || data[index].feeToken?.toLowerCase() === ZeroAddress)
+        if (!data[index].feeToken || data[index].feeToken === ZeroAddress)
           data[index].feeToken = await getProviderFeeToken(chainId)
       }
       return data
@@ -208,26 +208,13 @@ export class C2DEngineOPFK8 extends C2DEngine {
       else
         stagesInput.push({
           index,
-          id: asset.documentId,
-          remote: {
-            txId: asset.transferTxId,
-            serviceId: asset.serviceId,
-            userdata: asset.userdata ? asset.userdata : {}
-          }
+          id: asset.documentId
         })
       index++
     }
     // continue with algorithm
     const stageAlgorithm: OPFK8ComputeStageAlgorithm = {}
-    if (algorithm.url) {
-      stageAlgorithm.url = algorithm.url
-    } else {
-      stageAlgorithm.remote = {
-        txId: algorithm.transferTxId,
-        serviceId: algorithm.serviceId,
-        userdata: algorithm.userdata ? algorithm.userdata : {}
-      }
-    }
+    if (algorithm.url) stageAlgorithm.url = algorithm.url
     if (algorithm.documentId) stageAlgorithm.id = algorithm.documentId
     if ('meta' in algorithm && 'rawcode' in algorithm.meta && algorithm.meta.rawcode)
       stageAlgorithm.rawcode = algorithm.meta.rawcode
@@ -238,11 +225,7 @@ export class C2DEngineOPFK8 extends C2DEngine {
       input: stagesInput,
       algorithm: stageAlgorithm,
       output: output || {},
-      compute: {
-        Instances: 1,
-        namespace: environment,
-        maxtime: 3600
-      }
+      compute: {} // TO DO
     }
     // now, let's build the workflow
     const workflow: OPFK8ComputeWorkflow = {
@@ -291,21 +274,18 @@ export class C2DEngineOPFK8 extends C2DEngine {
 
   public override async stopComputeJob(
     jobId: string,
-    owner: string,
-    agreementId?: string
+    owner: string
   ): Promise<ComputeJob[]> {
     // and the full payload
     const nonce: number = new Date().getTime()
     const config = await getConfiguration()
-    // current provider (python) signature is owner + job_id + nonce OR owner + nonce
     const providerSignature = await sign(String(nonce), config.keys.privateKey)
     const payload: OPFK8ComputeStop = {
       owner,
       providerSignature,
       providerAddress: config.keys.ethAddress,
       nonce,
-      jobId,
-      agreementId
+      jobId
     }
     try {
       const response = await axios({
@@ -371,11 +351,9 @@ export class C2DEngineOPFK8 extends C2DEngine {
   ): Promise<Readable> {
     const nonce: number = new Date().getTime()
     const config = await getConfiguration()
-    // signature check on operator service is only owner + jobId
-    // nonce is not part of signature message
-    const message: string = jobId
-      ? String(consumerAddress + jobId)
-      : String(consumerAddress)
+    let message: string
+    if (jobId) message = String(nonce + consumerAddress + jobId)
+    else message = String(nonce + consumerAddress + jobId)
     const providerSignature = await sign(message, config.keys.privateKey)
 
     const payload: OPFK8ComputeGetResult = {
@@ -391,7 +369,7 @@ export class C2DEngineOPFK8 extends C2DEngine {
         method: 'get',
         url: `${URLUtils.sanitizeURLPath(
           this.getC2DConfig().url
-        )}api/v1/operator/getResult`,
+        )}api/v1/operator/computeResult`,
         data: payload,
         responseType: 'stream'
       })

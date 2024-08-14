@@ -101,7 +101,7 @@ if (config.hasP2P) {
   await node.start()
 }
 if (config.hasIndexer && dbconn) {
-  indexer = new OceanIndexer(dbconn, config.indexingNetworks)
+  indexer = new OceanIndexer(dbconn, config.supportedNetworks)
   // if we set this var
   // it also loads initial data (useful for testing, or we might actually want to have a bootstrap list)
   // store and advertise DDOs
@@ -121,11 +121,6 @@ if (config.hasProvider && dbconn) {
 
 // Singleton instance across application
 const oceanNode = OceanNode.getInstance(dbconn, node, provider, indexer, config)
-
-function removeExtraSlashes(req: any, res: any, next: any) {
-  req.url = req.url.replace(/\/{2,}/g, '/')
-  next()
-}
 
 if (config.hasHttp) {
   // allow up to 25Mb file upload
@@ -158,7 +153,7 @@ if (config.hasHttp) {
   })
 
   // Integrate static file serving middleware
-  app.use(removeExtraSlashes)
+
   app.use('/', httpRoutes)
 
   app.listen(config.httpPort, () => {

@@ -181,7 +181,7 @@ export const processChunkLogs = async (
             if (!allowed.length) {
               INDEXER_LOGGER.log(
                 LOG_LEVELS_STR.LEVEL_ERROR,
-                `Metadata Proof validators list is empty`,
+                `Metadata Proof validator not allowed`,
                 true
               )
               continue
@@ -300,10 +300,7 @@ export async function wasNFTDeployedByOurFactory(
 
   const nftAddressFromFactory = await nftFactoryContract.erc721List(dataNftAddress)
 
-  return (
-    getAddress(dataNftAddress)?.toLowerCase() ===
-    getAddress(nftAddressFromFactory)?.toLowerCase()
-  )
+  return getAddress(dataNftAddress) === getAddress(nftAddressFromFactory)
 }
 
 // default in seconds

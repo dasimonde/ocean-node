@@ -6,10 +6,7 @@ import {
   JsonRpcApiProvider,
   JsonRpcProvider,
   isAddress,
-  Network,
-  parseUnits,
-  Wallet,
-  TransactionReceipt
+  Network
 } from 'ethers'
 import { getConfiguration } from './config.js'
 import { CORE_LOGGER } from './logging/common.js'
@@ -37,10 +34,7 @@ export class Blockchain {
       this.knownRPCs.push(...fallbackRPCs)
     }
     this.network = new ethers.Network(chainName, chainId)
-    // this.provider = new ethers.JsonRpcProvider(rpc, this.network)
-    this.provider = new ethers.JsonRpcProvider(rpc, null, {
-      staticNetwork: ethers.Network.from(chainId)
-    })
+    this.provider = new ethers.JsonRpcProvider(rpc, this.network)
     this.registerForNetworkEvents()
     // always use this signer, not simply provider.getSigner(0) for instance (as we do on many tests)
     this.signer = new ethers.Wallet(process.env.PRIVATE_KEY, this.provider)
@@ -59,7 +53,7 @@ export class Blockchain {
   }
 
   public async isNetworkReady(): Promise<ConnectionStatus> {
-    if (this.networkAvailable && this.provider.ready) {
+    if (this.networkAvailable || this.provider.ready) {
       return { ready: true }
     }
     return await this.detectNetwork()
@@ -69,36 +63,6 @@ export class Blockchain {
     return this.knownRPCs
   }
 
-  public async calculateGasCost(to: string, amount: bigint): Promise<bigint> {
-    const provider = this.getProvider()
-    const estimatedGas = await provider.estimateGas({
-      to,
-      value: amount
-    })
-
-    const block = await provider.getBlock('latest')
-    const baseFee = block.baseFeePerGas
-    const priorityFee = parseUnits('2', 'gwei')
-    const maxFee = baseFee + priorityFee
-    const gasCost = estimatedGas * maxFee
-
-    return amount + gasCost
-  }
-
-  public async sendTransaction(
-    wallet: Wallet,
-    to: string,
-    amount: bigint
-  ): Promise<TransactionReceipt> {
-    const tx = await wallet.sendTransaction({
-      to,
-      value: amount
-    })
-    const receipt = await tx.wait()
-
-    return receipt
-  }
-
   private detectNetwork(): Promise<ConnectionStatus> {
     return new Promise((resolve) => {
       const timeout = setTimeout(() => {
@@ -106,12 +70,11 @@ export class Blockchain {
         CORE_LOGGER.error(`Unable to detect provider network: (TIMEOUT)`)
         resolve({ ready: false, error: 'TIMEOUT' })
       }, 3000)
-
       this.provider
-        .getBlock('latest')
-        .then((block) => {
+        ._detectNetwork()
+        .then((network) => {
           clearTimeout(timeout)
-          resolve({ ready: block.hash !== null })
+          resolve({ ready: network instanceof Network })
         })
         .catch((err) => {
           CORE_LOGGER.error(`Unable to detect provider network: ${err.message}`)
@@ -185,7 +148,7 @@ export async function verifyMessage(
       return false
     }
     const signerAddr = await ethers.verifyMessage(message, signature)
-    if (signerAddr?.toLowerCase() !== address?.toLowerCase()) {
+    if (signerAddr.toLowerCase() !== address.toLowerCase()) {
       return false
     }
     return true
