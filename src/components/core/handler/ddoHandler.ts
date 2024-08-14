@@ -20,7 +20,6 @@ import ERC721Template from '@oceanprotocol/contracts/artifacts/contracts/templat
 // import lzma from 'lzma-native'
 import lzmajs from 'lzma-purejs-requirejs'
 import {
-  isRemoteDDO,
   getValidationSignature,
   makeDid,
   validateObject
@@ -32,8 +31,7 @@ import {
   DecryptDDOCommand,
   ValidateDDOCommand
 } from '../../../@types/commands.js'
-import { Storage } from '../../../components/storage/index.js'
-import { hasP2PInterface } from '../..//httpRoutes/index.js'
+import { hasP2PInterface } from '../../httpRoutes/index.js'
 import { EncryptMethod } from '../../../@types/fileObject.js'
 import {
   ValidateParams,
@@ -141,8 +139,10 @@ export class DecryptDdoHandler extends Handler {
       if (config.authorizedDecrypters.length > 0) {
         // allow if on authorized list or it is own node
         if (
-          !config.authorizedDecrypters.includes(decrypterAddress) &&
-          decrypterAddress !== config.keys.ethAddress
+          !config.authorizedDecrypters
+            .map((address) => address?.toLowerCase())
+            .includes(decrypterAddress?.toLowerCase()) &&
+          decrypterAddress?.toLowerCase() !== config.keys.ethAddress?.toLowerCase()
         ) {
           CORE_LOGGER.logMessage('Decrypt DDO: Decrypter not authorized', true)
           return {
@@ -381,8 +381,8 @@ export class DecryptDdoHandler extends Handler {
         )
 
         if (
-          addressFromHashSignature !== decrypterAddress &&
-          addressFromBytesSignature !== decrypterAddress
+          addressFromHashSignature?.toLowerCase() !== decrypterAddress?.toLowerCase() &&
+          addressFromBytesSignature?.toLowerCase() !== decrypterAddress?.toLowerCase()
         ) {
           throw new Error('address does not match')
         }
@@ -397,20 +397,9 @@ export class DecryptDdoHandler extends Handler {
         }
       }
 
-      const decryptedDocumentString = decryptedDocument.toString()
-      const ddoObject = JSON.parse(decryptedDocumentString)
-
-      let stream = Readable.from(decryptedDocumentString)
-
-      if (isRemoteDDO(ddoObject)) {
-        const storage = Storage.getStorageClass(ddoObject.remote)
-        const result = await storage.getReadableStream()
-        stream = result.stream as Readable
-      }
-
       return {
-        stream,
-        status: { httpStatus: 201 }
+        stream: Readable.from(decryptedDocument.toString()),
+        status: { httpStatus: 200 }
       }
     } catch (error) {
       CORE_LOGGER.logMessage(`Decrypt DDO: error ${error}`, true)
@@ -450,6 +439,7 @@ export class GetDdoHandler extends Handler {
         status: { httpStatus: 200 }
       }
     } catch (error) {
+      CORE_LOGGER.error(`Get DDO error: ${error}`)
       return {
         stream: null,
         status: { httpStatus: 500, error: 'Unknown error: ' + error.message }
